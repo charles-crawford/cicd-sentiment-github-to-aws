@@ -130,7 +130,7 @@ Resources:
           Memory: 6144
           MemoryReservation: 2048
           StopTimeout: 120
-          Links: [redis, mongo]
+          Links: !If [ EC2, [redis, mongo], !Ref AWS::NoValue ]
           DependsOn:
             - ContainerName: redis
               Condition: START
@@ -149,11 +149,11 @@ Resources:
               awslogs-stream-prefix: !Ref AWS::StackName
           Environment:
             - Name: CELERY_BROKER_URL
-              Value: redis://redis:6379
+              Value: !If [ EC2, redis://redis:6379, redis://localhost:6379 ]
             - Name: CELERY_RESULT_BACKEND
-              Value: redis://redis:6379
+              Value: !If [ EC2, redis://redis:6379, redis://localhost:6379 ]
             - Name: MONGODB_URL
-              Value: mongodb://mongo:27017
+              Value: !If [ EC2, mongodb://mongo:27017, mongodb://localhost:27017 ]
             - Name: MONGO_DB_NAME
               Value: batch-db
             - Name: MONGO_COLLECTION_NAME
@@ -188,7 +188,7 @@ Resources:
           Memory: 2048
           MemoryReservation: 1024
           StopTimeout: 120
-          Links: [mongo]
+          Links: !If [ EC2, [mongo], !Ref AWS::NoValue ]
           DependsOn:
             - ContainerName: mongo
               Condition: START
@@ -207,7 +207,7 @@ Resources:
             - Name: ME_CONFIG_MONGODB_AUTH_PASSWORD
               Value: password
             - Name: ME_CONFIG_MONGODB_URL
-              Value: mongodb://root:password@mongo:27017
+              Value: !If [ EC2, mongodb://root:password@mongo:27017, mongodb://root:password@localhost:27017 ]
         - Name: redis
           Image: redis
           Cpu: 512
