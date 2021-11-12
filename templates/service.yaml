@@ -130,9 +130,11 @@ Resources:
           Memory: 6144
           MemoryReservation: 2048
           StopTimeout: 120
-          Links: [redis]
+          Links: [redis, mongo]
           DependsOn:
             - ContainerName: redis
+              Condition: START
+            - ContainerName: mongo
               Condition: START
           PortMappings:
             - ContainerPort: !Ref ContainerPort
@@ -166,10 +168,6 @@ Resources:
           Memory: 2048
           MemoryReservation: 1024
           StopTimeout: 120
-          Links: [!Ref GitHubRepo]
-          DependsOn:
-            - ContainerName: !Ref GitHubRepo
-              Condition: START
           PortMappings:
             - ContainerPort: 27017
               HostPort: 27017
@@ -209,7 +207,7 @@ Resources:
             - Name: ME_CONFIG_MONGODB_AUTH_PASSWORD
               Value: password
             - Name: ME_CONFIG_MONGODB_URL
-              Value: mongodb://root:password@mongo:27017/
+              Value: mongodb://root:password@mongo:27017
         - Name: redis
           Image: redis
           Cpu: 512
