@@ -156,6 +156,10 @@ Resources:
               Value: batch-db
             - Name: MONGO_COLLECTION_NAME
               Value: batch-results
+            - Name: MONGODB_USERNAME
+              Value: root
+            - Name: MONGODB_PASSWORD
+              Value: password
         - Name: mongo
           Image: mongo
           Cpu: 512
