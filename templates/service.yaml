@@ -1,0 +1,230 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+
+Parameters:
+  Cluster:
+    Type: String
+
+  DesiredCount:
+    Type: Number
+
+  LaunchType:
+    Type: String
+    Default: Fargate
+    AllowedValues:
+      - Fargate
+      - EC2
+
+  TargetGroup:
+    Type: String
+
+  TargetGroupMongoExpress:
+    Type: String
+
+  TargetGroupFlower:
+    Type: String
+
+  SourceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  GitHubRepo:
+    Type: String
+
+  ImageTag:
+    Type: String
+
+  ContainerPort:
+    Type: Number
+
+  HostPort:
+    Type: Number
+
+Conditions:
+  Fargate: !Equals [ !Ref LaunchType, "Fargate" ]
+
+  EC2: !Equals [ !Ref LaunchType, "EC2" ]
+
+Resources:
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${AWS::StackName}
+
+  FargateService:
+    Type: AWS::ECS::Service
+    Condition: Fargate
+    Properties:
+      Cluster: !Ref Cluster
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref TaskDefinition
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref SourceSecurityGroup
+          Subnets: !Ref Subnets
+      LoadBalancers:
+        - ContainerName: !Ref GitHubRepo
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+        - ContainerName: mongo-express
+          ContainerPort: 8081
+          TargetGroupArn: !Ref TargetGroupMongoExpress
+        - ContainerName: !Ref GitHubRepo
+          ContainerPort: 5555
+          TargetGroupArn: !Ref TargetGroupFlower
+
+  EC2Service:
+    Type: AWS::ECS::Service
+    Condition: EC2
+    Properties:
+      Cluster: !Ref Cluster
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref TaskDefinition
+      LaunchType: EC2
+      LoadBalancers:
+        - ContainerName: !Ref GitHubRepo
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+        - ContainerName: mongo-express
+          ContainerPort: 8081
+          TargetGroupArn: !Ref  TargetGroupMongoExpress
+        - ContainerName: !Ref GitHubRepo
+          ContainerPort: 5555
+          TargetGroupArn: !Ref TargetGroupFlower
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${AWS::StackName}-${GitHubRepo}
+      RequiresCompatibilities:
+        - !If [ Fargate, "FARGATE", "EC2" ]
+      Memory: 16384
+      Cpu: 4096
+      NetworkMode: !If [ Fargate, "awsvpc", "bridge" ]
+      ExecutionRoleArn: !Ref TaskExecutionRole
+      ContainerDefinitions:
+        - Name: !Ref GitHubRepo
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${GitHubRepo}:${ImageTag}
+          Essential: true
+          Cpu: 2048
+          Memory: 6144
+          MemoryReservation: 2048
+          StopTimeout: 120
+          Links: [redis]
+          DependsOn:
+            - ContainerName: redis
+              Condition: START
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              HostPort: !If [ Fargate, !Ref ContainerPort, !Ref HostPort ]
+            - ContainerPort: 5555
+              HostPort: 5555
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: !Ref AWS::StackName
+          Environment:
+            - Name: CELERY_BROKER_URL
+              Value: redis://redis:6379
+            - Name: CELERY_RESULT_BACKEND
+              Value: redis://redis:6379
+            - Name: MONGODB_URL
+              Value: mongodb://mongo:27017
+            - Name: MONGO_DB_NAME
+              Value: batch-db
+            - Name: MONGO_COLLECTION_NAME
+              Value: batch-results
+        - Name: mongo
+          Image: mongo
+          Cpu: 512
+          Memory: 2048
+          MemoryReservation: 1024
+          StopTimeout: 120
+          Links: [!Ref GitHubRepo]
+          DependsOn:
+            - ContainerName: !Ref GitHubRepo
+              Condition: START
+          PortMappings:
+            - ContainerPort: 27017
+              HostPort: 27017
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: !Ref AWS::StackName
+          Environment:
+            - Name: MONGO_INITDB_ROOT_USERNAME
+              Value: root
+            - Name: MONGO_INITDB_ROOT_PASSWORD
+              Value: password
+        - Name: mongo-express
+          Image: mongo-express
+          Cpu: 512
+          Memory: 2048
+          MemoryReservation: 1024
+          StopTimeout: 120
+          Links: [mongo]
+          DependsOn:
+            - ContainerName: mongo
+              Condition: START
+          PortMappings:
+            - ContainerPort: 8081
+              HostPort: 8081
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: !Ref AWS::StackName
+          Environment:
+            - Name: ME_CONFIG_MONGODB_AUTH_USERNAME
+              Value: root
+            - Name: ME_CONFIG_MONGODB_AUTH_PASSWORD
+              Value: password
+            - Name: ME_CONFIG_MONGODB_URL
+              Value: mongodb://root:password@mongo:27017/
+        - Name: redis
+          Image: redis
+          Cpu: 512
+          Memory: 2048
+          MemoryReservation: 1024
+          StopTimeout: 120
+          PortMappings:
+            - ContainerPort: 6379
+              HostPort: 6379
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: !Ref AWS::StackName
+          Environment:
+            - Name: ALLOW_EMPTY_PASSWORD
+              Value: yes
+
+Outputs:
+  Service:
+    Value: !If [ Fargate, !Ref FargateService, !Ref EC2Service ]
