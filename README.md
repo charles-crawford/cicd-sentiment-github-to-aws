@@ -5,7 +5,7 @@ ECS deployment. The CloudFormation templates are based on this
 [AWS Tutorial](https://github.com/awslabs/ecs-refarch-continuous-deployment). I've added Parameters to 
 make it easier to modify the repo to other apps. I've also added some details of the changes I had to make from 
 the tutorial repo above to get the app deployed. 
-
+#### TODO Still working on Fargate networking 
 ### Sections
 1. First Things First
 2. Modifications to the AWS Example Templates
@@ -28,8 +28,9 @@ build another image from your GitHub repo and deploy that.
 I added a few Parameters to the parent template to feed into the child templates:
 ImageTag, ContainerPort, DesiredCount, HostPort, etc. I added the Parameters that I thought could generalize to 
 apps with different languages. Make sure to declare any Parameters you add to the 
-corresponding Resource's Parameter block in . Also, declare them in the Parameters section of the 
-child template. You need to do both these things so the values make it through the Stack build. 
+corresponding Resource's Parameter block in the `continuous-deployment-sentiment.yaml` file. 
+Also, declare them in the Parameters section of the child template. You need to do both these 
+things so the values make it through the Stack build. 
 
 ##### Buildspec
 The next thing I did was replace the BuildSpec phases in the `templates/deployment-pipeline.yml.`
@@ -45,8 +46,8 @@ pushed in the Buildspec. I sent it to ECR, but you can easily modify the code to
 ##### Port Numbers
 Instead of hard-coding port numbers in, the ContainerPort and HostPort Parameters are added to make it easier 
 to deploy apps that run on various ports. HostPort is the port number that your service will map to on the host 
-if LaunchType is EC2. This needs to be the same as the ContainerPort for Fargate deployments. There are conditionals 
-added just make sure this is the case, e.g: `FromPort: !If [ EC2, !Ref HostPort, !Ref ContainerPort ]`
+if LaunchType is EC2. This needs to be the same as the ContainerPort for Fargate deployments. There are 
+conditionals added just make sure this is the case, e.g: `FromPort: !If [ EC2, !Ref HostPort, !Ref ContainerPort ]`
 
 ##### Health Checks
 My app was slow to boot up because it downloads the sentiment model which takes a bit. So none of the Tasks would 
@@ -55,14 +56,14 @@ I had to increase the HealthCheckTimeoutSeconds and HealthCheckIntervalSeconds t
 I added these as Parameters for easy deployment modifications.   
 
 ### Running this system of Templates to Deploy 
-You'll need to send the nested templates to the specified S3 bucket so CloudFormation will be able to get then when 
-deploying the Stacks. From the base directory run:
+You'll need to send the nested templates to the specified S3 bucket so CloudFormation will be able to get then 
+when deploying the Stacks. From the base directory run:
 
 `./bin/deploy continuous-deployment-sentiment`
 
-After those files have been delivered to your bucket, go to CloudFormation console in your AWS account. Use the parent
-template, named `continuous-deployment-sentiment.yaml` in this repo to build the stacks. Check your Parameter values
-and proceed on to deploy the Stack. 
+After those files have been delivered to your bucket, go to CloudFormation console in your AWS account. Use the 
+parent template, named `continuous-deployment-sentiment.yaml` in this repo to build the stacks. Check your 
+Parameter values and proceed on to deploy the Stack. 
 
 ### Clean up
 Clean up is easy. Just delete the parent stack, and it will delete all resources except the ArtifactBucket S3 
