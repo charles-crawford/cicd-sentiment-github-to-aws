@@ -16,6 +16,13 @@ Parameters:
       - Fargate
       - EC2
 
+  InstanceType:
+    Type: String
+    Default: p2.xlarge
+    AllowedValues:
+      - p2.xlarge
+      - t2.xlarge
+
   TargetGroup:
     Type: String
 
@@ -45,8 +52,8 @@ Parameters:
 
 Conditions:
   Fargate: !Equals [ !Ref LaunchType, "Fargate" ]
-
   EC2: !Equals [ !Ref LaunchType, "EC2" ]
+  GPU: !Equals [ !Ref InstanceType, "p2.xlarge" ]
 
 Resources:
   TaskExecutionRole:
@@ -118,17 +125,16 @@ Resources:
       Family: !Sub ${AWS::StackName}-${GitHubRepo}
       RequiresCompatibilities:
         - !If [ Fargate, "FARGATE", "EC2" ]
-      Memory: 16384
-      Cpu: 4096
+      Cpu: !If [ GPU, 2048, 2048 ]
+      Memory: !If [ GPU, 11264, 8192 ]
       NetworkMode: !If [ Fargate, "awsvpc", "bridge" ]
       ExecutionRoleArn: !Ref TaskExecutionRole
       ContainerDefinitions:
         - Name: !Ref GitHubRepo
           Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${GitHubRepo}:${ImageTag}
           Essential: true
-          Cpu: 2048
-          Memory: 6144
-          MemoryReservation: 2048
+          Cpu: !If [ GPU, 1024, 256 ]
+          Memory: !If [ GPU, 8192, 3072 ]
           StopTimeout: 120
           Links: !If [ EC2, [redis, mongo], !Ref AWS::NoValue ]
           DependsOn:
@@ -141,6 +147,12 @@ Resources:
               HostPort: !If [ Fargate, !Ref ContainerPort, !Ref HostPort ]
             - ContainerPort: 5555
               HostPort: 5555
+          ResourceRequirements:
+            !If
+            - GPU
+            - - Type: GPU
+                Value: 1
+            - - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -164,9 +176,8 @@ Resources:
               Value: password
         - Name: mongo
           Image: mongo
-          Cpu: 512
-          Memory: 2048
-          MemoryReservation: 1024
+          Cpu: 256
+          Memory: 1024
           StopTimeout: 120
           PortMappings:
             - ContainerPort: 27017
@@ -184,9 +195,8 @@ Resources:
               Value: password
         - Name: mongo-express
           Image: mongo-express
-          Cpu: 512
-          Memory: 2048
-          MemoryReservation: 1024
+          Cpu: 256
+          Memory: 1024
           StopTimeout: 120
           Links: !If [ EC2, [mongo], !Ref AWS::NoValue ]
           DependsOn:
@@ -210,9 +220,8 @@ Resources:
               Value: !If [ EC2, mongodb://root:password@mongo:27017, mongodb://root:password@localhost:27017 ]
         - Name: redis
           Image: redis
-          Cpu: 512
-          Memory: 2048
-          MemoryReservation: 1024
+          Cpu: 256
+          Memory: 1024
           StopTimeout: 120
           PortMappings:
             - ContainerPort: 6379
