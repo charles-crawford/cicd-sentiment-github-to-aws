@@ -12,7 +12,7 @@ This template is set up by default to deploy a p2.xlarge GPU instance for the se
 $0.90 per hour for these instances on top of the other resources. So please be aware of cleaning up your stack once you are done.
 </span>
 
-<span style="color:red; font-weight: bold">*** Simply select the t2.large instance to launch using a CPU service.***</span>
+<span style="color:red; font-weight: bold">*** Simply select the t2.xlarge instance to launch using a CPU service.***</span>
 
 ### Note: Fargate does not support GPU deployments.
 #### TODO Still working on Fargate networking 

@@ -25,7 +25,7 @@ Parameters:
     Default: p2.xlarge
     AllowedValues:
       - p2.xlarge
-      - t2.large
+      - t2.xlarge
     Description: The instance type must be large enough in memory and cpu to handle your container specs. If p2.xlarge,
       will use the AWSRegionToAMIGPU map to deploy the AWS ECS Optimized AMI for using a GPU for the service. Current
       mapping only supports the US regions.

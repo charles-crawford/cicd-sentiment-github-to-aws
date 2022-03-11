@@ -21,7 +21,7 @@ Parameters:
     Default: p2.xlarge
     AllowedValues:
       - p2.xlarge
-      - t2.large
+      - t2.xlarge
 
   TargetGroup:
     Type: String
@@ -126,7 +126,7 @@ Resources:
       RequiresCompatibilities:
         - !If [ Fargate, "FARGATE", "EC2" ]
       Cpu: !If [ GPU, 2048, 2048 ]
-      Memory: !If [ GPU, 11264, 4096 ]
+      Memory: !If [ GPU, 11264, 8192 ]
       NetworkMode: !If [ Fargate, "awsvpc", "bridge" ]
       ExecutionRoleArn: !Ref TaskExecutionRole
       ContainerDefinitions:
@@ -134,7 +134,7 @@ Resources:
           Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${GitHubRepo}:${ImageTag}
           Essential: true
           Cpu: !If [ GPU, 1024, 256 ]
-          Memory: !If [ GPU, 8192, 1024 ]
+          Memory: !If [ GPU, 8192, 3072 ]
           StopTimeout: 120
           Links: !If [ EC2, [redis, mongo], !Ref AWS::NoValue ]
           DependsOn:

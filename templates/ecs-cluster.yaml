@@ -15,7 +15,7 @@ Parameters:
     Default: p2.xlarge
     AllowedValues:
       - p2.xlarge
-      - t2.large
+      - t2.xlarge
 
   ClusterSize:
     Type: Number
