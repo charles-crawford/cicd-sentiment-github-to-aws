@@ -10,7 +10,7 @@ Description: >
 Parameters:
   LaunchType:
     Type: String
-    Default: Fargate
+    Default: EC2
     AllowedValues:
       - Fargate
       - EC2
@@ -19,6 +19,16 @@ Parameters:
       Scaling group of t2.micro instances for your cluster. See
       https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html
       to learn more about launch types.
+
+  InstanceType:
+    Type: String
+    Default: p2.xlarge
+    AllowedValues:
+      - p2.xlarge
+      - t2.large
+    Description: The instance type must be large enough in memory and cpu to handle your container specs. If p2.xlarge,
+      will use the AWSRegionToAMIGPU map to deploy the AWS ECS Optimized AMI for using a GPU for the service. Current
+      mapping only supports the US regions.
 
   GitHubUser:
     Type: String
@@ -66,11 +76,6 @@ Parameters:
     Type: Number
     Default: 1
     Description: The number of instantiations of the specified task definition
-
-  InstanceType:
-    Type: String
-    Default: t2.2xlarge
-    Description: The instance type must be large enough in memory and cpu to handle your container specs
 
   HealthCheckPath:
     Type: String
@@ -207,6 +212,7 @@ Resources:
       Parameters:
         Cluster: !GetAtt Cluster.Outputs.ClusterName
         LaunchType: !Ref LaunchType
+        InstanceType: !Ref InstanceType
         TargetGroup: !GetAtt LoadBalancer.Outputs.TargetGroup
         TargetGroupFlower: !GetAtt LoadBalancer.Outputs.TargetGroupFlower
         TargetGroupMongoExpress: !GetAtt LoadBalancer.Outputs.TargetGroupMongoExpress
