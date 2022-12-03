@@ -12,10 +12,10 @@ Parameters:
 
   InstanceType:
     Type: String
-    Default: p2.xlarge
+    Default: t2.xlarge
     AllowedValues:
-      - p2.xlarge
       - t2.xlarge
+      - p3.2xlarge
 
   ClusterSize:
     Type: Number
@@ -33,7 +33,7 @@ Parameters:
 
 Conditions:
   EC2: !Equals [ !Ref LaunchType, "EC2" ]
-  GPU: !Equals [ !Ref InstanceType, "p2.xlarge" ]
+  GPU: !Equals [ !Ref InstanceType, "p3.2xlarge" ]
 
 Mappings:
   AWSRegionToAMI:
